@@ -7,13 +7,19 @@ class Settings(object):
 class DataSettings(Settings):
 	"""This represents the settings for a line of data points."""
 
-	def __init__(self):
+	def __init__(self, data):
+
+		self.data = data
+
 		self.line_color = (0, 0, 0)
 
 		self.dots_enabled = True
 		self.dots_color = (0, 0, 1)
-		self.dots_opacity = 0.8
+		self.dots_opacity = 0.6
 
+class DiagramSettings(Settings):
+
+	def __init__(self):
 		self.title = '(untitled)'
 
 class NoodleDiagram(object):
@@ -26,9 +32,9 @@ class NoodleDiagram(object):
 	# Add an extra 3% horizontal space
 	HORIZONTAL_FUDGE = 1.03
 
-	def __init__(self, data_settings):
+	def __init__(self, settings):
 
-		self.settings = data_settings
+		self.settings = settings
 
 		self.margin = 30
 		self.tau = 0.25
@@ -39,6 +45,7 @@ class NoodleDiagram(object):
 		self.data_sets = []
 
 	def add_data(self, data_set):
+		assert isinstance(data_set, DataSettings)
 		self.data_sets.append(data_set)
 	
 	def draw_frame(self):
@@ -79,13 +86,13 @@ class NoodleDiagram(object):
 		draw_matrix = cairo.Matrix(1, 0, 0, -1, self.margin, self.HEIGHT - self.margin)
 		self.cr.transform(draw_matrix)
 
-		self.x_min = min(float(data[0][0]) for data in self.data_sets)
-		self.x_max = max(float(data[-1][0]) for data in self.data_sets) * self.HORIZONTAL_FUDGE
+		self.x_min = min(float(data.data[0][0]) for data in self.data_sets)
+		self.x_max = max(float(data.data[-1][0]) for data in self.data_sets) * self.HORIZONTAL_FUDGE
 
 		self.y_min = 0
 		self.y_max = 0
 		for data_set in self.data_sets:
-			self.y_max = max(self.y_max, max(float(point[1]) for point in data_set))
+			self.y_max = max(self.y_max, max(float(point[1]) for point in data_set.data))
 		
 		self.y_max *= self.VERTICAL_FUDGE
 		
@@ -105,8 +112,14 @@ class NoodleDiagram(object):
 	
 	def draw_title(self):
 		self.cr.set_source_rgb(0, 0, 0)
-		self.cr.move_to(100, 20)
+		self.cr.move_to(100, 8)
 		self.cr.set_font_size(16)
+
+		# set the font antialiasing
+		font_opts = cairo.FontOptions()
+		font_opts.set_antialias(cairo.ANTIALIAS_SUBPIXEL)
+		self.cr.set_font_options(font_opts)
+
 		self.cr.select_font_face('sans', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
 
 		_, _, text_width, text_height, _, _ = self.cr.text_extents(self.settings.title)
@@ -146,7 +159,7 @@ class NoodleDiagram(object):
 
 		control_data = []
 	
-		sample_data = [self.mat.transform_point(x, y) for x, y in data]
+		sample_data = [self.mat.transform_point(x, y) for x, y in data.data]
 
 		# The first and last points are special cases... since we're traversing
 		# throught the data in order, we start with the first point. For the
@@ -185,7 +198,8 @@ class NoodleDiagram(object):
 		# Render the line
 		self.cr.stroke()
 	
-		self.cr.set_source_rgba(0, 0, 1, 0.6)
+		rgba_settings = list(data.dots_color) + [data.dots_opacity]
+		self.cr.set_source_rgba(*rgba_settings)
 		for x, y in sample_data:
 			self.cr.move_to(x, y)
 			self.cr.arc(x, y, 4, 0, 2 * math.pi)
@@ -194,10 +208,25 @@ class NoodleDiagram(object):
 	def write(self, fname):
 		return self.surface.write_to_png(fname)
 
-settings = DataSettings()
-settings.title = 'Servlet Response Time'
+diagram_settings = DiagramSettings()
+diagram_settings.title = 'Hello World Graph'
+diagram = NoodleDiagram(diagram_settings)
 
-diagram = NoodleDiagram(settings)
-diagram.add_data([(0,1.5618), (1,1.6181), (2,1.7533), (3,1.6211), (4,1.8151) , (5,1.6225) , (6,1.6746) , (7,1.6423) , (8,1.6083) , (9,1.7178) , (10,1.7609) , (11,1.8334) , (12,1.7215) , (13,1.7473) , (14,1.7602) , (15,1.8741) , (16,1.6417) , (17,1.7281) , (18,1.6502) , (19,1.4890)])
+data_one = DataSettings([(0,1.5618), (1,1.6181), (2,1.7533), (3,1.6211), (4,1.8151) , (5,1.6225) , (6,1.6746) , (7,1.6423) , (8,1.6083) , (9,1.7178) , (10,1.7609) , (11,1.8334) , (12,1.7215) , (13,1.7473) , (14,1.7602) , (15,1.8741) , (16,1.6417) , (17,1.7281) , (18,1.6502) , (19,1.4890)])
+
+data_two = DataSettings([(0,1.1997) , (1,1.2902) , (2,1.5996) , (3,2.1451) , (4,2.1546) , (5,1.8481) , (6,1.6872) , (7,1.4629) , (8,1.4289) , (9,1.4704) , (10,1.5064) , (11,1.5799) , (12,1.5030) , (13,1.4658) , (14,1.5674) , (15,1.5623) , (16,1.1632) , (17,1.3055) , (18,1.1015) , (19,0.8648)])
+data_two.dots_color = (1, 0, 0)
+
+data_three = DataSettings([(0,0.0515) , (1,0.0484) , (2,0.0466) , (3,0.0461) , (4,0.0458) , (5,0.0479) , (6,0.0502) , (7,0.0547) , (8,0.0673) , (9,0.0793) , (10,0.0940) , (11,0.1109) , (12,0.1028) , (13,0.1060) , (14,0.1139) , (15,0.0922) , (16,0.0658) , (17,0.0732) , (18,0.0639) , (19,0.0582)])
+data_three.dots_color = (0, 0.8, 0)
+
+data_four = DataSettings([(0,0.6827) ,(1,0.6462) ,(2,0.6970) ,(3,0.7730) ,(4,0.7807) ,(5,0.5742) ,(6,0.6657) ,(7,0.6655) ,(8,0.7226) ,(9,0.7417) ,(10,0.7879) ,(11,0.8237) ,(12,0.7946) ,(13,0.7802) ,(14,0.8187) ,(15,0.8032) ,(16,0.7454) ,(17,0.7487) ,(18,0.7384) ,(19,0.6760)])
+data_four.dots_color = (0.8, 0, 0.9)
+
+
+diagram.add_data(data_one)
+diagram.add_data(data_two)
+diagram.add_data(data_three)
+diagram.add_data(data_four)
 diagram.draw()
 diagram.write('noodle.png')
