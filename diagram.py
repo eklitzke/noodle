@@ -32,27 +32,20 @@ class NoodleDiagram(object):
 	# Add an extra 3% horizontal space
 	HORIZONTAL_OVEREXTEND = 1.03
 
-	def __init__(self, settings, cr=None):
+	def __init__(self, settings):
 
 		self.settings = settings
 
 		self.margin = 30
 		self.tau = 0.20
 
-		if cr is None:
-			self.surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, self.WIDTH, self.HEIGHT)
-			self.cr = cairo.Context(self.surface)
-		else:
-			self.surface = None
-			self.cr = cr
-	
 		self.data_sets = []
 
 	def add_data(self, data_set):
 		assert isinstance(data_set, DataSettings)
 		self.data_sets.append(data_set)
 	
-	def draw_frame(self):
+	def draw_frame(self, cr):
 		"""This draws the frame around the stuff"""
 
 		def get_spacing(max_val):
@@ -68,19 +61,19 @@ class NoodleDiagram(object):
 		for i in range(1, int(math.ceil(self.y_max / y_spacing)) + 1):
 			_, y_pos = self.mat.transform_point(0, i * y_spacing)
 			y_pos = int(round(y_pos))
-			self.cr.move_to(-4, y_pos)
-			self.cr.line_to(4, y_pos)
-		self.cr.stroke()
+			cr.move_to(-4, y_pos)
+			cr.line_to(4, y_pos)
+		cr.stroke()
 		
 		x_spacing = get_spacing(self.x_max - self.x_min)
 		for i in range(1, int(math.ceil((self.x_max - self.x_min)/ x_spacing)) + 1):
 			x_pos, _ = self.mat.transform_point(self.x_min + i * x_spacing, 0)
 			x_pos = int(round(x_pos))
-			self.cr.move_to(x_pos, -4)
-			self.cr.line_to(x_pos, 4)
-			self.cr.stroke()
+			cr.move_to(x_pos, -4)
+			cr.line_to(x_pos, 4)
+			cr.stroke()
 	
-	def get_scale(self):
+	def get_scale(self, cr):
 		"""Figure out the scale of the graph."""
 
 		# Set the basic transformation matrix. This puts the logical point (0,
@@ -88,7 +81,7 @@ class NoodleDiagram(object):
 		# point (10, 0) would be a point 10 pixels out on the x-axis, and the
 		# point (0, 10) would be a point 10 pixels up on the y-axis.
 		draw_matrix = cairo.Matrix(1, 0, 0, -1, self.margin, self.HEIGHT - self.margin)
-		self.cr.transform(draw_matrix)
+		cr.transform(draw_matrix)
 
 		self.x_min = min(float(data.data[0][0]) for data in self.data_sets)
 		self.x_max = max(float(data.data[-1][0]) for data in self.data_sets) * self.HORIZONTAL_OVEREXTEND
@@ -114,52 +107,52 @@ class NoodleDiagram(object):
 
 		self.mat = cairo.Matrix(xx, yx, xy, yy, x0, y0)
 	
-	def draw_title(self):
-		self.cr.set_source_rgb(0, 0, 0)
-		self.cr.move_to(100, 8)
-		self.cr.set_font_size(16)
+	def draw_title(self, cr):
+		cr.set_source_rgb(0, 0, 0)
+		cr.move_to(100, 8)
+		cr.set_font_size(16)
 
 		# set the font antialiasing
 		font_opts = cairo.FontOptions()
 		font_opts.set_antialias(cairo.ANTIALIAS_SUBPIXEL)
-		self.cr.set_font_options(font_opts)
+		cr.set_font_options(font_opts)
 
-		self.cr.select_font_face('sans', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
+		cr.select_font_face('sans', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
 
-		_, _, text_width, text_height, _, _ = self.cr.text_extents(self.settings.title)
+		_, _, text_width, text_height, _, _ = cr.text_extents(self.settings.title)
 
 		# Note: the x_pos is not offset by self.margin
 		x_pos = int(round((self.WIDTH / 2.0) - (text_width / 2.0)))
 		y_pos = int(round(5 + text_height))
-		self.cr.move_to(x_pos, y_pos)
-		self.cr.show_text(self.settings.title)
-		self.cr.stroke()
+		cr.move_to(x_pos, y_pos)
+		cr.show_text(self.settings.title)
+		cr.stroke()
 
-	def draw(self):
+	def draw(self, cr):
 
 		# First, draw a blank white canvas
-		self.cr.set_source_rgb(1, 1, 1)
-		self.cr.rectangle(0, 0, self.WIDTH, self.HEIGHT)
-		self.cr.fill()
+		cr.set_source_rgb(1, 1, 1)
+		cr.rectangle(0, 0, self.WIDTH, self.HEIGHT)
+		cr.fill()
 
 		# Draw the title
-		self.draw_title()
+		self.draw_title(cr)
 
 		# Now draw the margins
-		self.cr.set_source_rgb(0, 0, 0)
-		self.cr.move_to(self.margin, self.HEIGHT - self.margin)
-		self.cr.line_to(self.margin, 0)
-		self.cr.move_to(self.margin, self.HEIGHT - self.margin)
-		self.cr.line_to(self.WIDTH, self.HEIGHT - self.margin)
+		cr.set_source_rgb(0, 0, 0)
+		cr.move_to(self.margin, self.HEIGHT - self.margin)
+		cr.line_to(self.margin, 0)
+		cr.move_to(self.margin, self.HEIGHT - self.margin)
+		cr.line_to(self.WIDTH, self.HEIGHT - self.margin)
 	
 
-		self.get_scale()
-		self.draw_frame()
+		self.get_scale(cr)
+		self.draw_frame(cr)
 
 		for data_set in self.data_sets:
-			self.draw_data_set(data_set)
+			self.draw_data_set(data_set, cr)
 		
-	def draw_data_set(self, data):
+	def draw_data_set(self, data, cr):
 
 		control_data = []
 	
@@ -185,8 +178,8 @@ class NoodleDiagram(object):
 
 			control_data.append((qx, qy))
 
-		self.cr.set_source_rgb(0, 0, 0)
-		self.cr.move_to(*sample_data[0])
+		cr.set_source_rgb(0, 0, 0)
+		cr.move_to(*sample_data[0])
 		for i in xrange(0, len(sample_data) - 2):
 			x0, y0 = sample_data[i]
 			x1, y1 = sample_data[i+1]
@@ -194,23 +187,23 @@ class NoodleDiagram(object):
 			qx0, qy0 = control_data[i]
 			qx1, qy1 = control_data[i+1]
 
-			self.cr.curve_to(x0 + qx0, y0 + qy0, x1 - qx1, y1 - qy1, x1, y1)
+			cr.curve_to(x0 + qx0, y0 + qy0, x1 - qx1, y1 - qy1, x1, y1)
 
 		# Draw the final line segment
-		self.cr.line_to(*sample_data[-1])
+		cr.line_to(*sample_data[-1])
 
 		# Render the line
-		self.cr.stroke()
+		cr.stroke()
 	
 		rgba_settings = list(data.dots_color) + [data.dots_opacity]
-		self.cr.set_source_rgba(*rgba_settings)
+		cr.set_source_rgba(*rgba_settings)
 		for x, y in sample_data:
-			self.cr.move_to(x, y)
-			self.cr.arc(x, y, 4, 0, 2 * math.pi)
-			self.cr.fill()
+			cr.move_to(x, y)
+			cr.arc(x, y, 4, 0, 2 * math.pi)
+			cr.fill()
 	
-	def write(self, fname):
-		return self.surface.write_to_png(fname)
+	def write(self, surface):
+		return surface.write_to_png(fname)
 
 data_one = DataSettings([(0,1.5618), (1,1.6181), (2,1.7533), (3,1.6211), (4,1.8151) , (5,1.6225) , (6,1.6746) , (7,1.6423) , (8,1.6083) , (9,1.7178) , (10,1.7609) , (11,1.8334) , (12,1.7215) , (13,1.7473) , (14,1.7602) , (15,1.8741) , (16,1.6417) , (17,1.7281) , (18,1.6502) , (19,1.4890)])
 
