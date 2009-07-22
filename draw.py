@@ -27,21 +27,25 @@ class NoodleDiagram(object):
 	WIDTH, HEIGHT = 800, 600
 
 	# Add an extra 10% of vertical space to the top of the graph
-	VERTICAL_FUDGE = 1.10
+	VERTICAL_OVEREXTEND = 1.10
 
 	# Add an extra 3% horizontal space
-	HORIZONTAL_FUDGE = 1.03
+	HORIZONTAL_OVEREXTEND = 1.03
 
-	def __init__(self, settings):
+	def __init__(self, settings, cr=None):
 
 		self.settings = settings
 
 		self.margin = 30
 		self.tau = 0.20
 
-		self.surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, self.WIDTH, self.HEIGHT)
-		self.cr = cairo.Context(self.surface)
-
+		if cr is None:
+			self.surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, self.WIDTH, self.HEIGHT)
+			self.cr = cairo.Context(self.surface)
+		else:
+			self.surface = None
+			self.cr = cr
+	
 		self.data_sets = []
 
 	def add_data(self, data_set):
@@ -87,14 +91,14 @@ class NoodleDiagram(object):
 		self.cr.transform(draw_matrix)
 
 		self.x_min = min(float(data.data[0][0]) for data in self.data_sets)
-		self.x_max = max(float(data.data[-1][0]) for data in self.data_sets) * self.HORIZONTAL_FUDGE
+		self.x_max = max(float(data.data[-1][0]) for data in self.data_sets) * self.HORIZONTAL_OVEREXTEND
 
 		self.y_min = 0
 		self.y_max = 0
 		for data_set in self.data_sets:
 			self.y_max = max(self.y_max, max(float(point[1]) for point in data_set.data))
 		
-		self.y_max *= self.VERTICAL_FUDGE
+		self.y_max *= self.VERTICAL_OVEREXTEND
 		
 		width = float(self.x_max - self.x_min)
 	
@@ -208,10 +212,6 @@ class NoodleDiagram(object):
 	def write(self, fname):
 		return self.surface.write_to_png(fname)
 
-diagram_settings = DiagramSettings()
-diagram_settings.title = 'Hello World Graph'
-diagram = NoodleDiagram(diagram_settings)
-
 data_one = DataSettings([(0,1.5618), (1,1.6181), (2,1.7533), (3,1.6211), (4,1.8151) , (5,1.6225) , (6,1.6746) , (7,1.6423) , (8,1.6083) , (9,1.7178) , (10,1.7609) , (11,1.8334) , (12,1.7215) , (13,1.7473) , (14,1.7602) , (15,1.8741) , (16,1.6417) , (17,1.7281) , (18,1.6502) , (19,1.4890)])
 
 data_two = DataSettings([(0,1.1997) , (1,1.2902) , (2,1.5996) , (3,2.1451) , (4,2.1546) , (5,1.8481) , (6,1.6872) , (7,1.4629) , (8,1.4289) , (9,1.4704) , (10,1.5064) , (11,1.5799) , (12,1.5030) , (13,1.4658) , (14,1.5674) , (15,1.5623) , (16,1.1632) , (17,1.3055) , (18,1.1015) , (19,0.8648)])
@@ -223,10 +223,14 @@ data_three.dots_color = (0, 0.8, 0)
 data_four = DataSettings([(0,0.6827) ,(1,0.6462) ,(2,0.6970) ,(3,0.7730) ,(4,0.7807) ,(5,0.5742) ,(6,0.6657) ,(7,0.6655) ,(8,0.7226) ,(9,0.7417) ,(10,0.7879) ,(11,0.8237) ,(12,0.7946) ,(13,0.7802) ,(14,0.8187) ,(15,0.8032) ,(16,0.7454) ,(17,0.7487) ,(18,0.7384) ,(19,0.6760)])
 data_four.dots_color = (0.8, 0, 0.9)
 
+example_data = [data_one, data_two, data_three, data_four]
 
-diagram.add_data(data_one)
-diagram.add_data(data_two)
-diagram.add_data(data_three)
-diagram.add_data(data_four)
-diagram.draw()
-diagram.write('noodle.png')
+if __name__ == '__main__':
+	diagram_settings = DiagramSettings()
+	diagram_settings.title = 'Hello World Graph'
+	diagram = NoodleDiagram(diagram_settings)
+
+	for data in exmaple_data:
+		diagram.add_data(data)
+
+	diagram.draw()
