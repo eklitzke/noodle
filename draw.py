@@ -18,6 +18,12 @@ class NoodleDiagram(object):
 
 	WIDTH, HEIGHT = 800, 600
 
+	# Add an extra 10% of vertical space to the top of the graph
+	VERTICAL_FUDGE = 1.10
+
+	# Add an extra 3% horizontal space
+	HORIZONTAL_FUDGE = 1.03
+
 	def __init__(self):
 		self.margin = 30
 		self.tau = 0.25
@@ -40,7 +46,6 @@ class NoodleDiagram(object):
 				spacing = math.pow(10, exponent - 1)
 			else:
 				spacing = 0.5 * math.pow(10, exponent)
-			print 'max_val = %s, mantissa = %s, exponent = %s, spacing = %s' % (max_val, mantissa, exponent, spacing)
 			return spacing
 
 		y_spacing = get_spacing(self.y_max)
@@ -55,20 +60,30 @@ class NoodleDiagram(object):
 		for i in range(0, int(math.ceil((self.x_max - self.x_min)/ x_spacing)) + 1):
 			x_pos, _ = self.mat.transform_point(self.x_min + i * x_spacing, 0)
 			x_pos = int(round(x_pos))
-			#print 'x_pos = %s' % x_pos
-			self.cr.move_to(x_pos, self.HEIGHT - 4)
-			self.cr.line_to(x_pos, self.HEIGHT + 4)
+			print 'x_pos = %s' % x_pos
+			self.cr.move_to(x_pos, -4)
+			self.cr.line_to(x_pos, 4)
 			self.cr.stroke()
 	
 	def get_scale(self):
 		"""Figure out the scale of the graph."""
+
+		# Set the basic transformation matrix. This puts the logical point (0,
+		# 0) in the lower-left corner, at the intersection of the two axes. The
+		# point (10, 0) would be a point 10 pixels out on the x-axis, and the
+		# point (0, 10) would be a point 10 pixels up on the y-axis.
+		draw_matrix = cairo.Matrix(1, 0, 0, -1, self.margin, self.HEIGHT - self.margin)
+		self.cr.transform(draw_matrix)
+
 		self.x_min = min(float(data[0][0]) for data in self.data_sets)
-		self.x_max = max(float(data[-1][0]) for data in self.data_sets)
+		self.x_max = max(float(data[-1][0]) for data in self.data_sets) * self.HORIZONTAL_FUDGE
 
 		self.y_min = 0
 		self.y_max = 0
 		for data_set in self.data_sets:
 			self.y_max = max(self.y_max, max(float(point[1]) for point in data_set))
+		
+		self.y_max *= self.VERTICAL_FUDGE
 		
 		width = float(self.x_max - self.x_min)
 	
@@ -79,12 +94,11 @@ class NoodleDiagram(object):
 		xy = 0
 		x0 = -self.x_min * xx
 		yx = 0
-		yy = -rel_height / self.y_max
-		y0 = rel_height + 2*self.margin
+		yy = rel_height / self.y_max
+		y0 = 0
 
 		self.mat = cairo.Matrix(xx, yx, xy, yy, x0, y0)
 
-		self.cr.translate(self.margin, -self.margin)
 
 
 	def draw(self):
