@@ -33,6 +33,62 @@ class NoodleDiagram(object):
 	def draw_frame(self):
 		"""This draws the frame around the stuff"""
 
+		def get_spacing(max_val):
+			exponent = math.floor(math.log10(self.y_max))
+			mantissa = max_val * math.pow(10, -exponent)
+			if mantissa <= 4:
+				spacing = math.pow(10, exponent - 1)
+			else:
+				spacing = 0.5 * math.pow(10, exponent)
+			print 'max_val = %s, mantissa = %s, exponent = %s, spacing = %s' % (max_val, mantissa, exponent, spacing)
+			return spacing
+
+		y_spacing = get_spacing(self.y_max)
+		for i in range(0, int(math.ceil(self.y_max / y_spacing)) + 1):
+			_, y_pos = self.mat.transform_point(0, i * y_spacing)
+			y_pos = int(round(y_pos))
+			self.cr.move_to(-4, y_pos)
+			self.cr.line_to(4, y_pos)
+		self.cr.stroke()
+		
+		x_spacing = get_spacing(self.x_max - self.x_min)
+		for i in range(0, int(math.ceil((self.x_max - self.x_min)/ x_spacing)) + 1):
+			x_pos, _ = self.mat.transform_point(self.x_min + i * x_spacing, 0)
+			x_pos = int(round(x_pos))
+			#print 'x_pos = %s' % x_pos
+			self.cr.move_to(x_pos, self.HEIGHT - 4)
+			self.cr.line_to(x_pos, self.HEIGHT + 4)
+			self.cr.stroke()
+	
+	def get_scale(self):
+		"""Figure out the scale of the graph."""
+		self.x_min = min(float(data[0][0]) for data in self.data_sets)
+		self.x_max = max(float(data[-1][0]) for data in self.data_sets)
+
+		self.y_min = 0
+		self.y_max = 0
+		for data_set in self.data_sets:
+			self.y_max = max(self.y_max, max(float(point[1]) for point in data_set))
+		
+		width = float(self.x_max - self.x_min)
+	
+		rel_width = self.WIDTH - self.margin
+		rel_height = self.HEIGHT - self.margin
+
+		xx = rel_width / width
+		xy = 0
+		x0 = -self.x_min * xx
+		yx = 0
+		yy = -rel_height / self.y_max
+		y0 = rel_height + 2*self.margin
+
+		self.mat = cairo.Matrix(xx, yx, xy, yy, x0, y0)
+
+		self.cr.translate(self.margin, -self.margin)
+
+
+	def draw(self):
+
 		# First, draw a blank white canvas
 		self.cr.set_source_rgb(1, 1, 1)
 		self.cr.rectangle(0, 0, self.WIDTH, self.HEIGHT)
@@ -45,32 +101,9 @@ class NoodleDiagram(object):
 		self.cr.move_to(self.margin, self.HEIGHT - self.margin)
 		self.cr.line_to(self.WIDTH, self.HEIGHT - self.margin)
 	
-	def draw(self):
 
+		self.get_scale()
 		self.draw_frame()
-		self.cr.translate(self.margin, -self.margin)
-
-		x_min = min(float(data[0][0]) for data in self.data_sets)
-		x_max = max(float(data[-1][0]) for data in self.data_sets)
-
-		y_min = 0
-		y_max = 0
-		for data_set in self.data_sets:
-			y_max = max(y_max, max(float(point[1]) for point in data_set))
-
-		width = float(x_max - x_min)
-
-		rel_width = self.WIDTH - self.margin
-		rel_height = self.HEIGHT - self.margin
-
-		xx = rel_width / width
-		xy = 0
-		x0 = -x_min * xx
-		yx = 0
-		yy = -rel_height / y_max
-		y0 = rel_height + 2*self.margin
-
-		self.mat = cairo.Matrix(xx, yx, xy, yy, x0, y0)
 
 		for data_set in self.data_sets:
 			self.draw_data_set(data_set)
