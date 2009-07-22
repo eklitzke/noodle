@@ -18,6 +18,8 @@ class NoodleWidget(gtk.DrawingArea):
 
 	def expose(self, widget, event):
 		cr = widget.window.cairo_create()
+		cr.rectangle(event.area.x, event.area.y, event.area.width, event.area.height)
+		cr.clip()
 		self.diagram.WIDTH = self.allocation.width
 		self.diagram.HEIGHT = self.allocation.height
 		self.diagram.draw(cr)
