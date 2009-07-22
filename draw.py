@@ -37,7 +37,7 @@ class NoodleDiagram(object):
 		self.settings = settings
 
 		self.margin = 30
-		self.tau = 0.25
+		self.tau = 0.20
 
 		self.surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, self.WIDTH, self.HEIGHT)
 		self.cr = cairo.Context(self.surface)
@@ -61,7 +61,7 @@ class NoodleDiagram(object):
 			return spacing
 
 		y_spacing = get_spacing(self.y_max)
-		for i in range(0, int(math.ceil(self.y_max / y_spacing)) + 1):
+		for i in range(1, int(math.ceil(self.y_max / y_spacing)) + 1):
 			_, y_pos = self.mat.transform_point(0, i * y_spacing)
 			y_pos = int(round(y_pos))
 			self.cr.move_to(-4, y_pos)
@@ -69,7 +69,7 @@ class NoodleDiagram(object):
 		self.cr.stroke()
 		
 		x_spacing = get_spacing(self.x_max - self.x_min)
-		for i in range(0, int(math.ceil((self.x_max - self.x_min)/ x_spacing)) + 1):
+		for i in range(1, int(math.ceil((self.x_max - self.x_min)/ x_spacing)) + 1):
 			x_pos, _ = self.mat.transform_point(self.x_min + i * x_spacing, 0)
 			x_pos = int(round(x_pos))
 			self.cr.move_to(x_pos, -4)
