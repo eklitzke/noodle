@@ -14,6 +14,8 @@ class DataSettings(Settings):
 		self.dots_color = (0, 0, 1)
 		self.dots_opacity = 0.8
 
+		self.title = '(untitled)'
+
 class NoodleDiagram(object):
 
 	WIDTH, HEIGHT = 800, 600
@@ -24,7 +26,10 @@ class NoodleDiagram(object):
 	# Add an extra 3% horizontal space
 	HORIZONTAL_FUDGE = 1.03
 
-	def __init__(self):
+	def __init__(self, data_settings):
+
+		self.settings = data_settings
+
 		self.margin = 30
 		self.tau = 0.25
 
@@ -60,7 +65,6 @@ class NoodleDiagram(object):
 		for i in range(0, int(math.ceil((self.x_max - self.x_min)/ x_spacing)) + 1):
 			x_pos, _ = self.mat.transform_point(self.x_min + i * x_spacing, 0)
 			x_pos = int(round(x_pos))
-			print 'x_pos = %s' % x_pos
 			self.cr.move_to(x_pos, -4)
 			self.cr.line_to(x_pos, 4)
 			self.cr.stroke()
@@ -98,8 +102,21 @@ class NoodleDiagram(object):
 		y0 = 0
 
 		self.mat = cairo.Matrix(xx, yx, xy, yy, x0, y0)
+	
+	def draw_title(self):
+		self.cr.set_source_rgb(0, 0, 0)
+		self.cr.move_to(100, 20)
+		self.cr.set_font_size(16)
+		self.cr.select_font_face('sans', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
 
+		_, _, text_width, text_height, _, _ = self.cr.text_extents(self.settings.title)
 
+		# Note: the x_pos is not offset by self.margin
+		x_pos = int(round((self.WIDTH / 2.0) - (text_width / 2.0)))
+		y_pos = int(round(5 + text_height))
+		self.cr.move_to(x_pos, y_pos)
+		self.cr.show_text(self.settings.title)
+		self.cr.stroke()
 
 	def draw(self):
 
@@ -107,6 +124,9 @@ class NoodleDiagram(object):
 		self.cr.set_source_rgb(1, 1, 1)
 		self.cr.rectangle(0, 0, self.WIDTH, self.HEIGHT)
 		self.cr.fill()
+
+		# Draw the title
+		self.draw_title()
 
 		# Now draw the margins
 		self.cr.set_source_rgb(0, 0, 0)
@@ -121,7 +141,7 @@ class NoodleDiagram(object):
 
 		for data_set in self.data_sets:
 			self.draw_data_set(data_set)
-
+		
 	def draw_data_set(self, data):
 
 		control_data = []
@@ -174,7 +194,10 @@ class NoodleDiagram(object):
 	def write(self, fname):
 		return self.surface.write_to_png(fname)
 
-diagram = NoodleDiagram()
+settings = DataSettings()
+settings.title = 'Servlet Response Time'
+
+diagram = NoodleDiagram(settings)
 diagram.add_data([(0,1.5618), (1,1.6181), (2,1.7533), (3,1.6211), (4,1.8151) , (5,1.6225) , (6,1.6746) , (7,1.6423) , (8,1.6083) , (9,1.7178) , (10,1.7609) , (11,1.8334) , (12,1.7215) , (13,1.7473) , (14,1.7602) , (15,1.8741) , (16,1.6417) , (17,1.7281) , (18,1.6502) , (19,1.4890)])
 diagram.draw()
 diagram.write('noodle.png')
