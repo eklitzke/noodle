@@ -1,5 +1,6 @@
 import cairo
 import math
+import threading
 
 class Settings(object):
 	pass
@@ -16,6 +17,9 @@ class DataSettings(Settings):
 		self.dots_enabled = True
 		self.dots_color = (0, 0, 1)
 		self.dots_opacity = 0.6
+
+		# curve or line
+		self.line_type = 'curve'
 
 class DiagramSettings(Settings):
 
@@ -39,17 +43,18 @@ class NoodleDiagram(object):
 		self.margin = 30
 		self.tau = 0.20
 
-		self.data_sets = []
-
-	def add_data(self, data_set):
-		assert isinstance(data_set, DataSettings)
-		self.data_sets.append(data_set)
+		self.data_set_lock = threading.Lock()
+		self.data_sets = {}
 	
+	def add_data_set(self, name, val):
+		with self.data_set_lock:
+			self.data_sets[name] = val
+
 	def draw_frame(self, cr):
 		"""This draws the frame around the stuff"""
 
 		def get_spacing(max_val):
-			exponent = math.floor(math.log10(self.y_max))
+			exponent = math.floor(math.log10(max_val))
 			mantissa = max_val * math.pow(10, -exponent)
 			if mantissa <= 4:
 				spacing = math.pow(10, exponent - 1)
@@ -66,7 +71,8 @@ class NoodleDiagram(object):
 		cr.stroke()
 		
 		x_spacing = get_spacing(self.x_max - self.x_min)
-		for i in range(1, int(math.ceil((self.x_max - self.x_min)/ x_spacing)) + 1):
+		num_tics = int(math.ceil((self.x_max - self.x_min)/ x_spacing)) + 1
+		for i in range(1, num_tics):
 			x_pos, _ = self.mat.transform_point(self.x_min + i * x_spacing, 0)
 			x_pos = int(round(x_pos))
 			cr.move_to(x_pos, -4)
@@ -83,13 +89,15 @@ class NoodleDiagram(object):
 		draw_matrix = cairo.Matrix(1, 0, 0, -1, self.margin, self.HEIGHT - self.margin)
 		cr.transform(draw_matrix)
 
-		self.x_min = min(float(data.data[0][0]) for data in self.data_sets)
-		self.x_max = max(float(data.data[-1][0]) for data in self.data_sets) * self.HORIZONTAL_OVEREXTEND
+		self.x_min = min(data.data[0].time for data in self.data_sets.itervalues())
+		self.x_max = max(data.data[-1].time for data in self.data_sets.itervalues())
+		assert self.x_max > self.x_min, 'x_min = %s, x_max = %s' % (self.x_min, self.x_max)
+		self.x_max += (self.x_max - self.x_min) * (1 - self.HORIZONTAL_OVEREXTEND)
 
 		self.y_min = 0
 		self.y_max = 0
-		for data_set in self.data_sets:
-			self.y_max = max(self.y_max, max(float(point[1]) for point in data_set.data))
+		for data_set in self.data_sets.itervalues():
+			self.y_max = max(self.y_max, max(point.val for point in data_set.data))
 		
 		self.y_max *= self.VERTICAL_OVEREXTEND
 		
@@ -144,13 +152,16 @@ class NoodleDiagram(object):
 		cr.line_to(self.margin, 0)
 		cr.move_to(self.margin, self.HEIGHT - self.margin)
 		cr.line_to(self.WIDTH, self.HEIGHT - self.margin)
-	
 
-		self.get_scale(cr)
-		self.draw_frame(cr)
+		with self.data_set_lock:
+			if not self.data_sets:
+				return
 
-		for data_set in self.data_sets:
-			self.draw_data_set(data_set, cr)
+			self.get_scale(cr)
+			self.draw_frame(cr)
+
+			for data_set in self.data_sets.itervalues():
+				self.draw_data_set(data_set, cr)
 		
 	def draw_data_set(self, data, cr):
 
@@ -180,14 +191,19 @@ class NoodleDiagram(object):
 
 		cr.set_source_rgb(0, 0, 0)
 		cr.move_to(*sample_data[0])
+
 		for i in xrange(0, len(sample_data) - 2):
-			x0, y0 = sample_data[i]
-			x1, y1 = sample_data[i+1]
+			if data.line_type == 'curve':
+				x0, y0 = sample_data[i]
+				x1, y1 = sample_data[i+1]
 
-			qx0, qy0 = control_data[i]
-			qx1, qy1 = control_data[i+1]
+				qx0, qy0 = control_data[i]
+				qx1, qy1 = control_data[i+1]
 
-			cr.curve_to(x0 + qx0, y0 + qy0, x1 - qx1, y1 - qy1, x1, y1)
+				cr.curve_to(x0 + qx0, y0 + qy0, x1 - qx1, y1 - qy1, x1, y1)
+			else:
+				x1, y1 = sample_data[i+1]
+				cr.line_to(x1, y1)
 
 		# Draw the final line segment
 		cr.line_to(*sample_data[-1])
