@@ -14,6 +14,7 @@ from gtk import gdk
 
 from noodle import util
 from noodle import diagram
+from noodle import color
 
 try:
     import cairo
@@ -64,11 +65,15 @@ class DataCollector(threading.Thread):
 	def __init__(self, widget):
 		threading.Thread.__init__(self)
 		self.widget = widget
+		self.next_color = (0, .8, .8)
 	
 	def new_diagram(self, data):
-		randcolor = lambda: 0.25 + random.random() * 0.7
+		h, s, v = self.next_color
+		self.next_color = (h + 60, s, v)
+		r, g, b = color.hsv_to_rgb(h, s, v)
+
 		dgram = diagram.DataSettings(data)
-		dgram.dots_color = (randcolor(), randcolor(), randcolor())
+		dgram.dots_color = (r, g, b)
 		return dgram
 	
 	def redraw_widget(self):
@@ -121,6 +126,7 @@ class TestDataCollector(DataCollector):
 		for line in data_input:
 			servlet, xval, count, yval = line.split(',')
 			data_sets[servlet].append(util.DataPoint(xval, yval))
+		
 
 		for servlet, data in data_sets.iteritems():
 			dgram = self.new_diagram(data)
