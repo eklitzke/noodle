@@ -30,6 +30,7 @@ import diagram
 import gtk
 import threading
 import gobject
+from collections import defaultdict
 
 import util
 
@@ -61,9 +62,21 @@ class DataCollector(threading.Thread):
 		threading.Thread.__init__(self)
 		self.widget = widget
 	
-	def run(self):
-
+	def new_diagram(self, data):
 		randcolor = lambda: 0.25 + random.random() * 0.7
+		dgram = diagram.DataSettings(data)
+		dgram.dots_color = (randcolor(), randcolor(), randcolor())
+		return dgram
+	
+	def redraw_widget(self):
+		def redraw(widget):
+			x, y, w, h = widget.allocation
+			widget.window.invalidate_rect((0, 0, w, h), False)
+		gobject.idle_add(redraw, self.widget)
+
+class TabDataCollector(DataCollector):
+	
+	def run(self):
 
 		buffering_data_sets = {}
 
@@ -74,22 +87,34 @@ class DataCollector(threading.Thread):
 
 			if servlet in self.widget.diagram.data_sets:
 				self.widget.diagram.data_sets[servlet].data.append(point)
-				def redraw(widget):
-					x, y, w, h = widget.allocation
-					widget.window.invalidate_rect((0, 0, w, h), False)
-				gobject.idle_add(redraw, self.widget)
+				self.redraw_widget()
 				#time.sleep(0.01)
-			
+	
 			else:
 				if servlet not in buffering_data_sets:
-					buffering_data_sets[servlet] = util.TimeDataSet(300, 1500, 30)
+					buffering_data_sets[servlet] = util.TimeDataSet(300, 60 * 60, 30)
 				data = buffering_data_sets[servlet]
 				data.append(point)
 				if len(data) >= 30:
-					dgram = diagram.DataSettings(data)
-					dgram.dots_color = (randcolor(), randcolor(), randcolor())
+					dgram = self.new_diagram(data)
 					self.widget.diagram.add_data_set(servlet, dgram)
 					del buffering_data_sets[servlet]
+
+class TestDataCollector(DataCollector):
+
+	def run(self):
+		data_sets = defaultdict(list)
+		data_input = open('/home/evan/20090708.csv')
+
+		for line in data_input:
+			servlet, xval, count, yval = line.split(',')
+			data_sets[servlet].append(util.DataPoint(xval, yval))
+
+
+		for servlet, data in data_sets.iteritems():
+			dgram = self.new_diagram(data)
+			self.widget.diagram.add_data_set(servlet, dgram)
+		self.redraw_widget()
 
 def main():
 	window = gtk.Window()
@@ -101,7 +126,7 @@ def main():
 
 	window.show_all()
 
-	collector = DataCollector(noodle_widget)
+	collector = TestDataCollector(noodle_widget)
 	collector.start()
 
 	gtk.main()

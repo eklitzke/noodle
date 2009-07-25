@@ -40,7 +40,7 @@ class NoodleDiagram(object):
 
 		self.settings = settings
 
-		self.margin = 30
+		self.margin = 60
 		self.tau = 0.20
 
 		self.data_set_lock = threading.Lock()
@@ -52,6 +52,7 @@ class NoodleDiagram(object):
 
 	def draw_frame(self, cr):
 		"""This draws the frame around the stuff"""
+		cr.select_font_face('sans', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
 
 		def get_spacing(max_val):
 			exponent = math.floor(math.log10(max_val))
@@ -66,10 +67,15 @@ class NoodleDiagram(object):
 		for i in range(1, int(math.ceil(self.y_max / y_spacing)) + 1):
 			_, y_pos = self.mat.transform_point(0, i * y_spacing)
 			y_pos = int(round(y_pos))
+
+			_, _, text_width, text_height, _, _ = cr.text_extents(str(y_pos))
+			cr.move_to(-text_width - 10, y_pos)
+			cr.show_text(str(y_pos))
+
 			cr.move_to(-4, y_pos)
 			cr.line_to(4, y_pos)
 		cr.stroke()
-		
+
 		x_spacing = get_spacing(self.x_max - self.x_min)
 		num_tics = int(math.ceil((self.x_max - self.x_min)/ x_spacing)) + 1
 		for i in range(1, num_tics):
@@ -118,15 +124,8 @@ class NoodleDiagram(object):
 	def draw_title(self, cr):
 		cr.set_source_rgb(0, 0, 0)
 		cr.move_to(100, 8)
-		cr.set_font_size(16)
-
-		# set the font antialiasing
-		font_opts = cairo.FontOptions()
-		font_opts.set_antialias(cairo.ANTIALIAS_SUBPIXEL)
-		cr.set_font_options(font_opts)
 
 		cr.select_font_face('sans', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
-
 		_, _, text_width, text_height, _, _ = cr.text_extents(self.settings.title)
 
 		# Note: the x_pos is not offset by self.margin
@@ -142,6 +141,12 @@ class NoodleDiagram(object):
 		cr.set_source_rgb(1, 1, 1)
 		cr.rectangle(0, 0, self.WIDTH, self.HEIGHT)
 		cr.fill()
+
+		# Set up font things
+		cr.set_font_size(16)
+		font_opts = cairo.FontOptions()
+		font_opts.set_antialias(cairo.ANTIALIAS_SUBPIXEL)
+		cr.set_font_options(font_opts)
 
 		# Draw the title
 		self.draw_title(cr)
