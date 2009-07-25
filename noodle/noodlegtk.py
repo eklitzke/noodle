@@ -12,8 +12,8 @@ import random
 import threading
 from gtk import gdk
 
-import util
-import diagram
+from noodle import util
+from noodle import diagram
 
 try:
     import cairo
