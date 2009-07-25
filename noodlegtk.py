@@ -57,6 +57,9 @@ class NoodleWidget(gtk.DrawingArea):
 		self.diagram.draw(cr)
 
 class DataCollector(threading.Thread):
+	"""A DataCollector is something that accumulates data and feed it into a
+	NoodleWidget.
+	"""
 
 	def __init__(self, widget):
 		threading.Thread.__init__(self)
@@ -75,12 +78,14 @@ class DataCollector(threading.Thread):
 		gobject.idle_add(redraw, self.widget)
 
 class TabDataCollector(DataCollector):
+
+	DATA_PATH = '/home/evan/20090708.tab'
 	
 	def run(self):
 
 		buffering_data_sets = {}
 
-		data_input = open('/home/evan/20090708.tab')
+		data_input = open(self.DATA_PATH)
 		for line in data_input:
 			servlet, t, val = line.split(' ')
 			point = util.DataPoint(t, val)
@@ -101,15 +106,21 @@ class TabDataCollector(DataCollector):
 					del buffering_data_sets[servlet]
 
 class TestDataCollector(DataCollector):
+	"""A static data collector, for testing.
+
+	This just loads data from a static file, and renders it once. This is good
+	for testing, since the widget isn't animated, and the data stays the same.
+	"""
+
+	DATA_PATH = '/home/evan/20090708.csv'
 
 	def run(self):
 		data_sets = defaultdict(list)
-		data_input = open('/home/evan/20090708.csv')
+		data_input = open(self.DATA_PATH)
 
 		for line in data_input:
 			servlet, xval, count, yval = line.split(',')
 			data_sets[servlet].append(util.DataPoint(xval, yval))
-
 
 		for servlet, data in data_sets.iteritems():
 			dgram = self.new_diagram(data)

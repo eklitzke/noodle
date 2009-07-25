@@ -45,95 +45,10 @@ class NoodleDiagram(object):
 
 		self.data_set_lock = threading.Lock()
 		self.data_sets = {}
-	
+
 	def add_data_set(self, name, val):
 		with self.data_set_lock:
 			self.data_sets[name] = val
-
-	def draw_frame(self, cr):
-		"""This draws the frame around the stuff"""
-		cr.select_font_face('sans', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
-
-		def get_spacing(max_val):
-			exponent = math.floor(math.log10(max_val))
-			mantissa = max_val * math.pow(10, -exponent)
-			if mantissa <= 4:
-				spacing = math.pow(10, exponent - 1)
-			else:
-				spacing = 0.5 * math.pow(10, exponent)
-			return spacing
-
-		y_spacing = get_spacing(self.y_max)
-		for i in range(1, int(math.ceil(self.y_max / y_spacing)) + 1):
-			_, y_pos = self.mat.transform_point(0, i * y_spacing)
-			y_pos = int(round(y_pos))
-
-			_, _, text_width, text_height, _, _ = cr.text_extents(str(y_pos))
-			cr.move_to(-text_width - 10, y_pos)
-			cr.show_text(str(y_pos))
-
-			cr.move_to(-4, y_pos)
-			cr.line_to(4, y_pos)
-		cr.stroke()
-
-		x_spacing = get_spacing(self.x_max - self.x_min)
-		num_tics = int(math.ceil((self.x_max - self.x_min)/ x_spacing)) + 1
-		for i in range(1, num_tics):
-			x_pos, _ = self.mat.transform_point(self.x_min + i * x_spacing, 0)
-			x_pos = int(round(x_pos))
-			cr.move_to(x_pos, -4)
-			cr.line_to(x_pos, 4)
-			cr.stroke()
-	
-	def get_scale(self, cr):
-		"""Figure out the scale of the graph."""
-
-		# Set the basic transformation matrix. This puts the logical point (0,
-		# 0) in the lower-left corner, at the intersection of the two axes. The
-		# point (10, 0) would be a point 10 pixels out on the x-axis, and the
-		# point (0, 10) would be a point 10 pixels up on the y-axis.
-		draw_matrix = cairo.Matrix(1, 0, 0, -1, self.margin, self.HEIGHT - self.margin)
-		cr.transform(draw_matrix)
-
-		self.x_min = min(data.data[0].time for data in self.data_sets.itervalues())
-		self.x_max = max(data.data[-1].time for data in self.data_sets.itervalues())
-		assert self.x_max > self.x_min, 'x_min = %s, x_max = %s' % (self.x_min, self.x_max)
-		self.x_max += (self.x_max - self.x_min) * (1 - self.HORIZONTAL_OVEREXTEND)
-
-		self.y_min = 0
-		self.y_max = 0
-		for data_set in self.data_sets.itervalues():
-			self.y_max = max(self.y_max, max(point.val for point in data_set.data))
-		
-		self.y_max *= self.VERTICAL_OVEREXTEND
-		
-		width = float(self.x_max - self.x_min)
-	
-		rel_width = self.WIDTH - self.margin
-		rel_height = self.HEIGHT - self.margin
-
-		xx = rel_width / width
-		xy = 0
-		x0 = -self.x_min * xx
-		yx = 0
-		yy = rel_height / self.y_max
-		y0 = 0
-
-		self.mat = cairo.Matrix(xx, yx, xy, yy, x0, y0)
-	
-	def draw_title(self, cr):
-		cr.set_source_rgb(0, 0, 0)
-		cr.move_to(100, 8)
-
-		cr.select_font_face('sans', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
-		_, _, text_width, text_height, _, _ = cr.text_extents(self.settings.title)
-
-		# Note: the x_pos is not offset by self.margin
-		x_pos = int(round((self.WIDTH / 2.0) - (text_width / 2.0)))
-		y_pos = int(round(5 + text_height))
-		cr.move_to(x_pos, y_pos)
-		cr.show_text(self.settings.title)
-		cr.stroke()
 
 	def draw(self, cr):
 
@@ -162,16 +77,118 @@ class NoodleDiagram(object):
 			if not self.data_sets:
 				return
 
+			# Compute the scale for the graph, and create the various cairo
+			# matrices that will be used later on.
 			self.get_scale(cr)
+
+			# Draw the frame
 			self.draw_frame(cr)
 
+			cr.transform(self.draw_matrix)
 			for data_set in self.data_sets.itervalues():
 				self.draw_data_set(data_set, cr)
-		
+
+	def draw_title(self, cr):
+		"""Draw the title on the diagram."""
+
+		cr.set_source_rgb(0, 0, 0)
+		cr.move_to(100, 8)
+
+		cr.select_font_face('sans', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
+		_, _, text_width, text_height, _, _ = cr.text_extents(self.settings.title)
+
+		# Note: the x_pos is not offset by self.margin
+		x_pos = int(round((self.WIDTH / 2.0) - (text_width / 2.0)))
+		y_pos = int(round(5 + text_height))
+		cr.move_to(x_pos, y_pos)
+		cr.show_text(self.settings.title)
+		cr.stroke()
+
+	def draw_frame(self, cr):
+		"""This draws the frame around the stuff"""
+
+		cr.select_font_face('sans', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+		#self.draw_matrix = cairo.Matrix(1, 0, 0, -1, self.margin, self.HEIGHT - self.margin)
+
+		def get_spacing(max_val):
+			exponent = math.floor(math.log10(max_val))
+			mantissa = max_val * math.pow(10, -exponent)
+			if mantissa <= 4:
+				spacing = math.pow(10, exponent - 1)
+			else:
+				spacing = 0.5 * math.pow(10, exponent)
+			return spacing
+
+		# The y-axis tic marks are drawn by starting at the origin (lower left
+		# corner), and traversing upwards, towards the top of the cairo surface.
+		y_spacing = get_spacing(self.y_max)
+		for i in range(1, int(math.ceil(self.y_max / y_spacing)) + 1):
+			y_val = i * y_spacing
+			txt = '%1.2f' % y_val
+
+			_, y_pos = self.mat.transform_point(0, y_val)
+			_, y_pos = self.draw_matrix.transform_point(0, y_pos)
+
+			y_pos = int(round(y_pos))
+
+			_, _, text_width, text_height, _, _ = cr.text_extents(txt)
+			cr.move_to(self.margin - text_width - 10, y_pos + text_height / 2.0)
+			cr.show_text(txt)
+
+			cr.move_to(self.margin - 4, y_pos)
+			cr.line_to(self.margin + 4, y_pos)
+		cr.stroke()
+
+		x_spacing = get_spacing(self.x_max - self.x_min)
+		num_tics = int(math.ceil((self.x_max - self.x_min)/ x_spacing)) + 1
+		for i in range(1, num_tics):
+			x_pos, _ = self.mat.transform_point(self.x_min + i * x_spacing, 0)
+			x_pos, y_pos = self.draw_matrix.transform_point(x_pos, 0)
+			x_pos = int(round(x_pos))
+			cr.move_to(x_pos, y_pos - 4)
+			cr.line_to(x_pos, y_pos + 4)
+			cr.stroke()
+
+	def get_scale(self, cr):
+		"""Figure out the scale of the graph."""
+
+		# Set the basic transformation matrix. This puts the logical point (0,
+		# 0) in the lower-left corner, at the intersection of the two axes. The
+		# point (10, 0) would be a point 10 pixels out on the x-axis, and the
+		# point (0, 10) would be a point 10 pixels up on the y-axis.
+		self.draw_matrix = cairo.Matrix(1, 0, 0, -1, self.margin, self.HEIGHT - self.margin)
+
+		self.x_min = min(data.data[0].time for data in self.data_sets.itervalues())
+		self.x_max = max(data.data[-1].time for data in self.data_sets.itervalues())
+		assert self.x_max > self.x_min, 'x_min = %s, x_max = %s' % (self.x_min, self.x_max)
+		self.x_max += (self.x_max - self.x_min) * (1 - self.HORIZONTAL_OVEREXTEND)
+
+		self.y_min = 0
+		self.y_max = 0
+		for data_set in self.data_sets.itervalues():
+			self.y_max = max(self.y_max, max(point.val for point in data_set.data))
+
+		self.y_max *= self.VERTICAL_OVEREXTEND
+
+		width = float(self.x_max - self.x_min)
+
+		rel_width = self.WIDTH - self.margin
+		rel_height = self.HEIGHT - self.margin
+
+		xx = rel_width / width
+		xy = 0
+		x0 = -self.x_min * xx
+		yx = 0
+		yy = rel_height / self.y_max
+		y0 = 0
+
+		self.mat = cairo.Matrix(xx, yx, xy, yy, x0, y0)
+
+
 	def draw_data_set(self, data, cr):
 
 		control_data = []
-	
+
 		sample_data = [self.mat.transform_point(x, y) for x, y in data.data]
 
 		# The first and last points are special cases... since we're traversing
@@ -215,14 +232,14 @@ class NoodleDiagram(object):
 
 		# Render the line
 		cr.stroke()
-	
+
 		rgba_settings = list(data.dots_color) + [data.dots_opacity]
 		cr.set_source_rgba(*rgba_settings)
 		for x, y in sample_data:
 			cr.move_to(x, y)
 			cr.arc(x, y, 4, 0, 2 * math.pi)
 			cr.fill()
-	
+
 	def write(self, surface):
 		return surface.write_to_png(fname)
 
