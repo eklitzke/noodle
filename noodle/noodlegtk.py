@@ -137,6 +137,13 @@ def main():
 	window = gtk.Window()
 	window.set_title('Noodle 0.1')
 
+	def wakeup(widget, event):
+		if event.state & gtk.gdk.CONTROL_MASK and event.keyval == ord('w'):
+			window.destroy()
+			gtk.main_quit()
+	window.connect('key-press-event', wakeup)
+	window.resize(800, 600)
+
 	noodle_widget = NoodleWidget()
 	window.add(noodle_widget)
 	window.connect('delete-event', gtk.main_quit)

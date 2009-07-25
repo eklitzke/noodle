@@ -40,7 +40,7 @@ class NoodleDiagram(object):
 
 		self.settings = settings
 
-		self.margin = 60
+		self.margin = 50
 		self.tau = 0.20
 
 		self.data_set_lock = threading.Lock()
@@ -107,6 +107,7 @@ class NoodleDiagram(object):
 	def draw_frame(self, cr):
 		"""This draws the frame around the stuff"""
 
+		cr.set_font_size(14)
 		cr.select_font_face('sans', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
 		#self.draw_matrix = cairo.Matrix(1, 0, 0, -1, self.margin, self.HEIGHT - self.margin)
 
