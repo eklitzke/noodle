@@ -1,2 +1,5 @@
 *.png
 *.py[co]
+
+# private bits for yelp
+noodle/yelp.py
